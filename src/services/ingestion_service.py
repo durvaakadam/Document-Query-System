@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Dict, Optional, Tuple, List
 from dataclasses import dataclass
 from urllib.parse import urlparse
-from winmagic import magic
+import magic
 import logging
 
 # Configure logging
