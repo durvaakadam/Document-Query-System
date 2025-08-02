@@ -1,3 +1,10 @@
 aiohttp
 aiofiles
 python-magic-bin
+fastapi
+uvicorn[standard]
+pydantic
+# Document processing libraries
+PyPDF2
+PyMuPDF
+python-docx
