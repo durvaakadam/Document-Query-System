@@ -1,12 +1,16 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from schemas.models import DocumentQueryRequest, DocumentQueryResponse
 from services.document_processing_service import DocumentProcessingService
 from typing import List
+from auth.bearer import verify_bearer_token  # ⬅️ Add this line
 
 router = APIRouter()
 
 @router.post("/run", response_model=DocumentQueryResponse)
-async def run_document_query(request: DocumentQueryRequest):
+async def run_document_query(
+    request: DocumentQueryRequest,
+    _: str = Depends(verify_bearer_token)  # ⬅️ Enforces Bearer auth
+):
     """
     Process documents and questions to generate answers.
     """
@@ -23,7 +27,6 @@ async def run_document_query(request: DocumentQueryRequest):
         
         print("Validation passed, initializing DocumentProcessingService...")
         
-        print("Initializing DocumentProcessingService...")
         processing_service = DocumentProcessingService(cache_dir="./services/document_cache")
         print("Service initialized!")
         
@@ -38,7 +41,6 @@ async def run_document_query(request: DocumentQueryRequest):
         return DocumentQueryResponse(answers=result["answers"])
     
     except HTTPException:
-        # Re-raise HTTP exceptions
         raise
     except Exception as e:
         print(f"Unexpected error: {str(e)}")
