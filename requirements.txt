@@ -8,3 +8,9 @@ pydantic
 PyPDF2
 PyMuPDF
 python-docx
+openai
+pinecone-client
+tiktoken
+scikit-learn
+numpy
+openai

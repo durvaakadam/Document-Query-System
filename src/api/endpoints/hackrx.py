@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException
 from schemas.models import DocumentQueryRequest, DocumentQueryResponse
-from services.document_processing_service import DocumentProcessingService
+from src.services.document_ingestion.document_processing_service import DocumentProcessingService
 from typing import List
 
 router = APIRouter()
