@@ -8,3 +8,14 @@ pydantic
 PyPDF2
 PyMuPDF
 python-docx
+openai
+pinecone[asyncio,grpc]
+tiktoken
+scikit-learn
+numpy
+openai
+python-dotenv
+torch 
+transformers
+sentence-transformers
+nltk>=3.8
