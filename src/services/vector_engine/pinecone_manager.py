@@ -1,20 +1,20 @@
-import logging
 import asyncio
-from typing import List, Dict, Optional
-from pinecone import Pinecone, ServerlessSpec
+import logging
+import pinecone
+from pinecone import Pinecone,ServerlessSpec
 from .config import PineconeConfig
-from .models import VectorMetadata
-from typing import Optional, List, Dict, Any
+from .types import VectorMetadata
+from typing import Optional, Dict, Any
 
 logger = logging.getLogger(__name__)
 
 class PineconeManager:
-    """Manage Pinecone vector database operations"""
+    """Manage Pinecone vector database operations (same as before but updated for new dimensions)"""
     
     def __init__(self, config: PineconeConfig):
         self.config = config
         self.pc = Pinecone(api_key=config.api_key)
-        self.index = None
+
     
     async def initialize_index(self, delete_if_exists: bool = False) -> bool:
         """Initialize Pinecone index"""
@@ -59,8 +59,8 @@ class PineconeManager:
             return False
     
     async def upsert_vectors(self, 
-                           vectors: List[List[float]], 
-                           metadatas: List[VectorMetadata],
+                           vectors: list[list[float]], 
+                           metadatas: list[VectorMetadata],
                            batch_size: int = 100) -> bool:
         """Upsert vectors to Pinecone"""
         if not self.index:
@@ -103,10 +103,10 @@ class PineconeManager:
             return False
     
     async def query_vectors(self, 
-                          query_vector: List[float],
+                          query_vector: list[float],
                           top_k: int = 10,
                           filter_dict: Optional[Dict[str, Any]] = None,
-                          include_metadata: bool = True) -> List[Dict[str, Any]]:
+                          include_metadata: bool = True) -> list[Dict[str, Any]]:
         """Query vectors from Pinecone"""
         if not self.index:
             raise RuntimeError("Index not initialized. Call initialize_index() first.")
@@ -117,7 +117,7 @@ class PineconeManager:
                 top_k=top_k,
                 filter=filter_dict,
                 include_metadata=include_metadata,
-                include_values=False  # Don't return vector values to save bandwidth
+                include_values=False
             )
             
             # Extract results
@@ -137,7 +137,7 @@ class PineconeManager:
             logger.error(f"Failed to query vectors: {e}")
             return []
     
-    async def delete_vectors(self, ids: List[str]) -> bool:
+    async def delete_vectors(self, ids: list[str]) -> bool:
         """Delete vectors from Pinecone"""
         if not self.index:
             raise RuntimeError("Index not initialized. Call initialize_index() first.")

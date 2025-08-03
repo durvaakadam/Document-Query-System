@@ -1,23 +1,27 @@
 from dataclasses import dataclass
 from typing import Optional, List, Dict, Any
+import os
 
 
+@dataclass
 class EmbeddingConfig:
-    """Configuration for embedding generation"""
-    model: str = "text-embedding-3-small"  # OpenAI embedding model
-    dimensions: int = 1536  # Embedding dimensions
-    max_tokens: int = 8000  # Max tokens per chunk
-    batch_size: int = 100  # Batch size for API calls
+    model_name: str = "sentence-transformers/all-MiniLM-L6-v2"
+    dimensions: int = 384
+    max_length: int = 512
+    batch_size: int = 32
+    device: str = "auto"
     
 @dataclass
 class PineconeConfig:
-    """Configuration for Pinecone vector database"""
-    api_key: str
-    environment: str = "us-west1-gcp-free"  # Free tier environment
-    index_name: str = "hackrx-documents"
-    dimension: int = 1536
+    environment: str= "us-east-1"
+    api_key: str = os.getenv("PINECONE_API_KEY")
+    index_name: str = "hackrx-insurace-docs"
+    dimension: int = 384
     metric: str = "cosine"
-    cloud: str = "gcp"
-    region: str = "us-west1"
+    cloud: str = "aws"  
+
+    
+
+
 
 

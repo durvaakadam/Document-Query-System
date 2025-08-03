@@ -1,20 +1,14 @@
 import logging
-import os
+from typing import Dict, Any
 from .config import EmbeddingConfig, PineconeConfig
 from .vectorizer import DocumentVectorizer
+from services.document_processing.ingestion_service import DocumentIngestionService
+from services.document_processing.document_processing_service import DocumentTextProcessor
 
 logger = logging.getLogger(__name__)
 
-# Integration helper functions
-async def complete_pipeline_with_vectorization(document_url: str,
-                                             embedding_config: EmbeddingConfig,
-                                             pinecone_config: PineconeConfig,
-                                             openai_api_key: str) -> Dict[str, Any]:
-    """Complete pipeline: Ingest → Extract → Vectorize"""
-    
-    # Import required modules (assuming they're available)
-    from document_ingestion import DocumentIngestionService
-    from text_extraction import DocumentTextProcessor
+async def complete_pipeline_with_free_vectorization(document_url: str, embedding_config: EmbeddingConfig, pinecone_config: PineconeConfig) -> Dict[str, Any]:
+    """Complete pipeline using free models: Ingest → Extract → Vectorize"""
     
     results = {
         "document_url": document_url,
@@ -56,9 +50,9 @@ async def complete_pipeline_with_vectorization(document_url: str,
         results["document_id"] = extracted_doc.document_id
         results["total_chunks"] = len(extracted_doc.chunks)
         
-        # Step 3: Vectorization
-        logger.info("Step 3: Vectorization")
-        vectorizer = DocumentVectorizer(embedding_config, pinecone_config, openai_api_key)
+        # Step 3: Vectorization with free models
+        logger.info("Step 3: Vectorization using free Hugging Face models")
+        vectorizer = DocumentVectorizer(embedding_config, pinecone_config)
         
         # Initialize vectorizer
         await vectorizer.initialize()
@@ -70,7 +64,7 @@ async def complete_pipeline_with_vectorization(document_url: str,
         # Get final statistics
         results["vectorization_stats"] = vectorizer.get_vectorization_stats()
         
-        logger.info(f"Complete pipeline finished for document: {extracted_doc.document_id}")
+        logger.info(f"Complete free pipeline finished for document: {extracted_doc.document_id}")
         
     except Exception as e:
         error_msg = f"Pipeline failed: {str(e)}"

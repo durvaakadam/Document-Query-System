@@ -1,29 +1,31 @@
 import logging
-from typing import List, Dict, Optional
 from datetime import datetime
-from dataclasses import dataclass
-from .embedding_generator import EmbeddingGenerator
+from typing import List, Dict, Any, Optional
+import asyncio
+
+from .embedding_generator import HuggingFaceEmbeddingGenerator
 from .pinecone_manager import PineconeManager
 from .config import EmbeddingConfig, PineconeConfig
-from .models import VectorMetadata
+from .types import VectorMetadata
+from services.document_processing.document_processing_service import ExtractedDocument
 
 logger = logging.getLogger(__name__)
 
+
 class DocumentVectorizer:
-    """Main service to vectorize documents and store in Pinecone"""
+    """Main service to vectorize documents using free Hugging Face models"""
     
     def __init__(self, 
                  embedding_config: EmbeddingConfig,
-                 pinecone_config: PineconeConfig,
-                 openai_api_key: str):
+                 pinecone_config: PineconeConfig):
         
-        self.embedding_generator = EmbeddingGenerator(embedding_config, openai_api_key)
+        self.embedding_generator = HuggingFaceEmbeddingGenerator(embedding_config)
         self.pinecone_manager = PineconeManager(pinecone_config)
         self.embedding_config = embedding_config
         
     async def initialize(self, delete_existing_index: bool = False) -> bool:
         """Initialize the vectorization service"""
-        logger.info("Initializing Document Vectorizer...")
+        logger.info("Initializing Document Vectorizer with free Hugging Face models...")
         
         success = await self.pinecone_manager.initialize_index(delete_if_exists=delete_existing_index)
         if success:
@@ -69,8 +71,8 @@ class DocumentVectorizer:
                 )
                 metadatas.append(metadata)
             
-            # Generate embeddings
-            logger.info(f"Generating embeddings for {len(texts)} chunks...")
+            # Generate embeddings using free Hugging Face model
+            logger.info(f"Generating embeddings for {len(texts)} chunks using free model...")
             embeddings = await self.embedding_generator.generate_embeddings_batch(texts)
             
             # Store in Pinecone
@@ -95,8 +97,8 @@ class DocumentVectorizer:
     
     async def vectorize_multiple_documents(self, 
                                          extracted_docs: List[ExtractedDocument],
-                                         max_concurrent: int = 2) -> List[bool]:
-        """Vectorize multiple documents with concurrency control"""
+                                         max_concurrent: int = 1) -> List[bool]:
+        """Vectorize multiple documents (reduced concurrency for free models)"""
         semaphore = asyncio.Semaphore(max_concurrent)
         
         async def bounded_vectorize(doc):
@@ -121,7 +123,7 @@ class DocumentVectorizer:
         logger.info(f"Searching for similar chunks: '{query_text[:100]}...'")
         
         try:
-            # Generate embedding for query
+            # Generate embedding for query using free model
             query_embedding = await self.embedding_generator.generate_embedding(query_text)
             
             # Search in Pinecone
@@ -182,8 +184,9 @@ class DocumentVectorizer:
             "embedding_usage": embedding_stats,
             "index_stats": index_stats,
             "configuration": {
-                "embedding_model": self.embedding_config.model,
+                "embedding_model": self.embedding_config.model_name,
                 "embedding_dimensions": self.embedding_config.dimensions,
-                "max_tokens_per_chunk": self.embedding_config.max_tokens
+                "max_sequence_length": self.embedding_config.max_length,
+                "device": self.embedding_generator.device
             }
         }
