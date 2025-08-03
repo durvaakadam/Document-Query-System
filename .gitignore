@@ -29,6 +29,9 @@ MANIFEST
 # PyInstaller
 *.manifest
 *.spec
+*.egg-info/
+.installed.cfg
+*.egg
 
 # Installer logs
 pip-log.txt
@@ -82,3 +85,49 @@ document_cache/
 
 # FastAPI specific
 .pytest_cache/
+.hypothesis/
+
+# Pytest cache
+.pytest_cache/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# VS Code
+.vscode/
+
+# Environment variables
+.env
+.env.*
+*.env
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv/
+
+# Pyre type checker
+.pyre/
+
+# MyPy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# PyCharm
+.idea/
+
+# NLTK data (optional if you download datasets locally)
+nltk_data/
+
+# PDFs, logs, etc.
+*.log
+*.pdf
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Pinecone cache/index data
+pinecone_index/

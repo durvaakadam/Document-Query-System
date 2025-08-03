@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends
 from schemas.models import DocumentQueryRequest, DocumentQueryResponse
-from services.document_processing_service import DocumentProcessingService
+from src.services.document_processing.document_processing_service import DocumentProcessingService
 from typing import List
 from auth.bearer import verify_bearer_token  # ⬅️ Add this line
 

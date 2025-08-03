@@ -1,5 +1,5 @@
 import asyncio
-from ingestion_service import DocumentIngestionService
+from src.services.document_processing.ingestion_service import DocumentIngestionService
 
 async def test_ingestion():
     test_urls = [
