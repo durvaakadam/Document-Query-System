@@ -6,16 +6,14 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from typing import List
 
-# ✅ Ensure project root is in path for imports
+# Ensure project root is in path for imports
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-# ✅ Import your service
-from src.services.document_processing_service import DocumentProcessingService
-
-# ✅ Initialize FastAPI app
+# Import your service
+from src.services.document_processing.document_processing_service import DocumentTextProcessor # Initialize FastAPI app
 app = FastAPI()
 
-# ✅ Setup FastAPI's native Bearer token security
+# Setup FastAPI's native Bearer token security
 
 bearer_scheme = HTTPBearer()
 
@@ -35,27 +33,45 @@ def verify_bearer_token(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid Bearer token"
         )
-# ✅ Request body model
+# Request body model
 class QueryRequest(BaseModel):
     documents: List[str]
     questions: List[str]
 
-# ✅ Protected API endpoint
+# Protected API endpoint
 @app.post("/api/v1/hackrx/run")
 async def run_submission(
     request: QueryRequest,
     _: HTTPAuthorizationCredentials = Depends(verify_bearer_token)
 ):
-    service = DocumentProcessingService(cache_dir="src/services/document_cache")
+    service = DocumentTextProcessor()
 
-    result = await service.process_documents_and_questions(
-        document_identifiers=request.documents,
-        questions=request.questions
-    )
+    # Convert document names to full paths and detect file types
+    document_infos = []
+    for doc in request.documents:
+        # Build full path (assuming documents are in cache)
+        file_path = f"src/services/document_cache/{doc}"
+        
+        # Detect file type from extension
+        if doc.endswith('.pdf'):
+            file_type = "pdf"
+        elif doc.endswith('.docx'):
+            file_type = "docx"
+        elif doc.endswith('.eml'):
+            file_type = "email"
+        else:
+            file_type = "pdf"  # default fallback
+        
+        document_infos.append((file_path, file_type))
 
-    return result
+    # Process documents
+    extracted_documents = await service.process_multiple_documents(document_infos)
 
-# ✅ Customize OpenAPI to show Bearer Auth in Swagger UI
+    # For now, return processed document info (questions not handled yet)
+    answers = [f"Processed document: {doc.document_id} with {len(doc.chunks)} chunks" for doc in extracted_documents]
+    return {"answers": answers}
+
+# Customize OpenAPI to show Bearer Auth in Swagger UI
 def custom_openapi():
     if app.openapi_schema:
         return app.openapi_schema
@@ -83,3 +99,7 @@ def custom_openapi():
     return app.openapi_schema
 
 app.openapi = custom_openapi
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
