@@ -13,7 +13,7 @@ class EmbeddingConfig:
     
 @dataclass
 class PineconeConfig:
-    environment: str= "us-east-1"
+    region: str = "us-east-1"  # Changed from environment to region
     api_key: str = os.getenv("PINECONE_API_KEY")
     index_name: str = "hackrx-insurace-docs"
     dimension: int = 384

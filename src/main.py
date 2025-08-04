@@ -1,16 +1,22 @@
 import sys
 import os
+from dotenv import load_dotenv
 from fastapi import FastAPI, Depends, HTTPException, status, Security
 from fastapi.openapi.utils import get_openapi
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from typing import List
 
+# Load environment variables from .env file
+load_dotenv()
+
 # Ensure project root is in path for imports
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-# Import your service
-from src.services.document_processing.document_processing_service import DocumentTextProcessor # Initialize FastAPI app
+# Import your services
+from src.services.document_processing.document_processing_service import DocumentTextProcessor
+from src.services.vector_engine.config import EmbeddingConfig, PineconeConfig
+from src.services.vector_engine.vectorizer import DocumentVectorizer # Initialize FastAPI app
 app = FastAPI()
 
 # Setup FastAPI's native Bearer token security
@@ -44,8 +50,8 @@ async def run_submission(
     request: QueryRequest,
     _: HTTPAuthorizationCredentials = Depends(verify_bearer_token)
 ):
-    service = DocumentTextProcessor()
-
+    doc_processor = DocumentTextProcessor()
+    
     # Convert document names to full paths and detect file types
     document_infos = []
     for doc in request.documents:
@@ -64,12 +70,126 @@ async def run_submission(
         
         document_infos.append((file_path, file_type))
 
-    # Process documents
-    extracted_documents = await service.process_multiple_documents(document_infos)
-
-    # For now, return processed document info (questions not handled yet)
-    answers = [f"Processed document: {doc.document_id} with {len(doc.chunks)} chunks" for doc in extracted_documents]
-    return {"answers": answers}
+    try:
+        # Step 1: Process documents to extract text and create chunks
+        extracted_documents = await doc_processor.process_multiple_documents(document_infos)
+        
+        # Step 2: Try to use vector search, but fallback to simple text search if it fails
+        try:
+            # Setup vector engine configuration
+            embedding_config = EmbeddingConfig()
+            pinecone_config = PineconeConfig()
+            
+            # Initialize vectorizer for question answering
+            vectorizer = DocumentVectorizer(embedding_config, pinecone_config)
+            await vectorizer.initialize()
+            
+            # Vectorize documents if not already done
+            for extracted_doc in extracted_documents:
+                await vectorizer.vectorize_document(extracted_doc)
+            
+            # Answer questions using semantic search
+            answers = []
+            for question in request.questions:
+                # Search for relevant chunks across all processed documents
+                similar_chunks = await vectorizer.search_similar_chunks(
+                    query_text=question,
+                    top_k=5  # Get top 5 most relevant chunks
+                )
+                
+                if similar_chunks:
+                    # Combine the most relevant chunks to form an answer
+                    context_chunks = []
+                    for chunk in similar_chunks[:3]:  # Use top 3 chunks
+                        context_chunks.append({
+                            "content": chunk["content"],
+                            "document_id": chunk["document_id"],
+                            "similarity_score": chunk["similarity_score"],
+                            "page_number": chunk.get("page_number"),
+                            "section_title": chunk.get("section_title")
+                        })
+                    
+                    # Create a comprehensive answer based on found chunks
+                    answer = {
+                        "question": question,
+                        "relevant_chunks": context_chunks,
+                        "summary": f"Found {len(similar_chunks)} relevant sections. The most relevant information comes from {context_chunks[0]['document_id']} with {context_chunks[0]['similarity_score']:.3f} similarity score.",
+                        "search_method": "vector_search"
+                    }
+                else:
+                    answer = {
+                        "question": question,
+                        "relevant_chunks": [],
+                        "summary": "No relevant information found for this question in the provided documents.",
+                        "search_method": "vector_search"
+                    }
+                
+                answers.append(answer)
+                
+        except Exception as vector_error:
+            # Fallback to simple text-based search
+            print(f"Vector search failed, falling back to text search: {vector_error}")
+            
+            answers = []
+            for question in request.questions:
+                # Simple keyword-based search through all chunks
+                relevant_chunks = []
+                question_words = question.lower().split()
+                
+                for extracted_doc in extracted_documents:
+                    for i, chunk in enumerate(extracted_doc.chunks):
+                        chunk_text = chunk.content.lower()
+                        # Calculate simple relevance score based on keyword matches
+                        matches = sum(1 for word in question_words if word in chunk_text)
+                        if matches > 0:
+                            relevance_score = matches / len(question_words)
+                            relevant_chunks.append({
+                                "content": chunk.content[:500] + "..." if len(chunk.content) > 500 else chunk.content,
+                                "document_id": extracted_doc.document_id,
+                                "chunk_index": i,
+                                "relevance_score": relevance_score,
+                                "section_title": getattr(chunk, 'section_title', None),
+                                "page_number": getattr(chunk, 'page_number', None)
+                            })
+                
+                # Sort by relevance score and take top 3
+                relevant_chunks.sort(key=lambda x: x["relevance_score"], reverse=True)
+                top_chunks = relevant_chunks[:3]
+                
+                if top_chunks:
+                    answer = {
+                        "question": question,
+                        "relevant_chunks": top_chunks,
+                        "summary": f"Found {len(relevant_chunks)} relevant sections using text search. Best match has {top_chunks[0]['relevance_score']:.2f} relevance score.",
+                        "search_method": "text_search_fallback"
+                    }
+                else:
+                    answer = {
+                        "question": question,
+                        "relevant_chunks": [],
+                        "summary": "No relevant information found for this question in the provided documents.",
+                        "search_method": "text_search_fallback"
+                    }
+                
+                answers.append(answer)
+        
+        return {
+            "answers": answers,
+            "processed_documents": [
+                {
+                    "document_id": doc.document_id,
+                    "chunks_count": len(doc.chunks),
+                    "total_characters": sum(len(chunk.content) for chunk in doc.chunks)
+                }
+                for doc in extracted_documents
+            ]
+        }
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error processing documents or answering questions: {str(e)}"
+        )
 
 # Customize OpenAPI to show Bearer Auth in Swagger UI
 def custom_openapi():
