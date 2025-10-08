@@ -20,3 +20,4 @@ transformers
 sentence-transformers
 nltk>=3.8
 pdfplumber
+services

@@ -7,7 +7,7 @@ from .embedding_generator import HuggingFaceEmbeddingGenerator
 from .pinecone_manager import PineconeManager
 from .config import EmbeddingConfig, PineconeConfig
 from .types import VectorMetadata
-from services.document_processing.document_processing_service import ExtractedDocument
+from src.services.document_processing.document_processing_service import ExtractedDocument
 
 logger = logging.getLogger(__name__)
 
